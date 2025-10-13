@@ -58,10 +58,10 @@ if submit_button and query:
                  st.markdown("#### Data Table")
                  st.dataframe(df)
 
-            # Show the SQL query for transparency
-            if data.get("sql_query"):
-                with st.expander("Show Generated SQL Query"):
-                    st.code(data['sql_query'], language='sql')
+            # # Show the SQL query for transparency
+            # if data.get("sql_query"):
+            #     with st.expander("Show Generated SQL Query"):
+            #         st.code(data['sql_query'], language='sql')
 
         except requests.exceptions.RequestException as e:
             st.error(f"API Connection Error: Is the backend running? {e}")
