@@ -10,7 +10,7 @@ import uuid
 # -------------------
 st.set_page_config(page_title="Agentic BI", layout="wide")
 st.title("🤖 Agentic BI Platform")
-API_URL = "http://127.0.0.1:8000/agent-query"  # Change to your deployed URL when ready
+API_URL = "https://soravectors.com/api/agent-query"  # Change to your deployed URL when ready
 
 # -------------------
 # SESSION MANAGEMENT
@@ -107,3 +107,4 @@ if prompt := st.chat_input("Ask about your data..."):
     if data.get("sql_query"):
         with st.expander("Show Generated SQL Query"):
             st.code(data["sql_query"], language="sql")
+
