@@ -10,7 +10,7 @@ import uuid
 # -------------------
 st.set_page_config(page_title="Agentic BI", layout="wide")
 st.title("🤖 Agentic BI Platform")
-API_URL = "https://soravectors.com/api/agent-query"  # Change to your deployed URL when ready
+API_URL = "https://soravectors.com/api/agent-query"  # Change to your deployed URL
 
 # -------------------
 # SESSION MANAGEMENT
@@ -27,10 +27,9 @@ with st.sidebar:
     st.markdown("### 💬 Conversation Controls")
     if st.button("🧹 Clear Conversation"):
         st.session_state.clear()
-        st.session_state["conversation_id"] = str(uuid.uuid4())  # reset ID if needed
-        st.session_state["messages"] = []  # ensure messages list is empty
-        st.experimental_rerun = lambda: None  # noop, avoids crash
-
+        st.session_state["conversation_id"] = str(uuid.uuid4())
+        st.session_state["messages"] = []
+        st.experimental_rerun()
 
     st.markdown(f"**Conversation ID:** `{st.session_state.conversation_id}`")
 
@@ -39,15 +38,23 @@ with st.sidebar:
 # -------------------
 for msg in st.session_state.messages:
     role = msg["role"]
-    content = msg["content"]
     with st.chat_message(role):
-        st.markdown(content)
+        st.markdown(msg["content"])
+        # display chart/table if stored in the message
+        if "chart_data" in msg:
+            df = pd.DataFrame(msg["chart_data"]["data"], columns=msg["chart_data"]["columns"])
+            st.markdown("#### 📊 Chart (from history)")
+            st.plotly_chart(msg["chart_obj"], use_container_width=True)
+        if "table_data" in msg:
+            df = pd.DataFrame(msg["table_data"]["data"], columns=msg["table_data"]["columns"])
+            st.markdown("#### 🧾 Data Table (from history)")
+            st.dataframe(df)
 
 # -------------------
-# CHAT INPUT (NEW MESSAGE)
+# CHAT INPUT
 # -------------------
 if prompt := st.chat_input("Ask about your data..."):
-    # 1️⃣ Show user message immediately
+    # 1️⃣ Show user message
     with st.chat_message("user"):
         st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -69,42 +76,67 @@ if prompt := st.chat_input("Ask about your data..."):
             st.error(f"API error: {e}")
             st.stop()
 
-    # 3️⃣ Process backend response
+    # 3️⃣ Build assistant response
+    assistant_msg = {"role": "assistant", "content": ""}
+
+    # Text / final answer
     if data.get("final_answer"):
         answer = data["final_answer"]
+        assistant_msg["content"] = answer
         with st.chat_message("assistant"):
             st.markdown(answer)
-        st.session_state.messages.append({"role": "assistant", "content": answer})
 
-    # 4️⃣ Display visualization (if provided)
-    if data.get("chart_instructions_json") and data.get("result_df"):
+    # 4️⃣ Handle chart/table output
+    if data.get("result_df"):
         try:
             result_data = json.loads(data["result_df"])
             df = pd.DataFrame(result_data["data"], columns=result_data["columns"])
-            instructions = json.loads(data["chart_instructions_json"])
-            chart_type = instructions.get("chart_type", "bar").lower()
 
-            st.markdown("#### 📊 Generated Chart")
-            if chart_type == "bar":
-                fig = px.bar(df, x=instructions["x_axis"], y=instructions["y_axis"], title=instructions["title"])
-            elif chart_type == "line":
-                fig = px.line(df, x=instructions["x_axis"], y=instructions["y_axis"], title=instructions["title"])
-            elif chart_type == "pie":
-                fig = px.pie(df, names=instructions["x_axis"], values=instructions["y_axis"][0], title=instructions["title"])
-            else:
-                fig = None
+            chart_instructions = data.get("chart_instructions_json")
+            show_chart = False
+            show_table = False
 
-            if fig:
-                st.plotly_chart(fig, use_container_width=True)
+            if chart_instructions:
+                try:
+                    instructions = json.loads(chart_instructions)
+                    chart_type = instructions.get("chart_type", "").lower()
+                    show_chart = True
+                except Exception:
+                    show_chart = False
 
-            # Optional: show data table
-            st.markdown("#### 🧾 Data Table")
-            st.dataframe(df)
+            with st.chat_message("assistant"):
+                if show_chart:
+                    st.markdown("#### 📊 Generated Chart")
+                    if chart_type == "bar":
+                        fig = px.bar(df, x=instructions["x_axis"], y=instructions["y_axis"], title=instructions["title"])
+                    elif chart_type == "line":
+                        fig = px.line(df, x=instructions["x_axis"], y=instructions["y_axis"], title=instructions["title"])
+                    elif chart_type == "pie":
+                        fig = px.pie(df, names=instructions["x_axis"], values=instructions["y_axis"][0], title=instructions["title"])
+                    else:
+                        fig = None
+
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+                        assistant_msg["chart_data"] = result_data
+                        assistant_msg["chart_obj"] = fig
+                    else:
+                        st.warning("Unknown chart type.")
+
+                # show table if chart missing or both are needed
+                if not show_chart or data.get("show_table", True):
+                    st.markdown("#### 🧾 Data Table")
+                    st.dataframe(df)
+                    assistant_msg["table_data"] = result_data
+
         except Exception as e:
-            st.error(f"Chart rendering failed: {e}")
+            st.error(f"Chart/Table rendering failed: {e}")
 
-    # 5️⃣ Show SQL query (for transparency)
+    # 5️⃣ Show SQL query
     if data.get("sql_query"):
         with st.expander("Show Generated SQL Query"):
             st.code(data["sql_query"], language="sql")
+
+    # 6️⃣ Save assistant response to history
+    st.session_state.messages.append(assistant_msg)
 
