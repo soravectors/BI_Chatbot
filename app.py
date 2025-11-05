@@ -1,10 +1,10 @@
+import numpy as np
 import streamlit as st
 import pandas as pd
 import requests
 import json
 import plotly.express as px
 import uuid
-import numpy as np
 
 # -------------------
 # BASIC CONFIGURATION
@@ -157,5 +157,6 @@ if prompt := st.chat_input("Ask about your data..."):
 
     # 6️⃣ Save assistant response to history
     st.session_state.messages.append(assistant_msg)
+
 
 
