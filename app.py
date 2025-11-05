@@ -48,7 +48,7 @@ for msg in st.session_state.messages:
             st.plotly_chart(msg["chart_obj"], use_container_width=True)
         if "table_data" in msg:
             df = pd.DataFrame(msg["table_data"]["data"], columns=msg["table_data"]["columns"])
-            df.index = pd.np.arange(1, len(df) + 1)  # Add this line
+            df.index = np.arange(1, len(df) + 1)  # Add this line
             st.markdown("#### 🧾 Data Table")
             st.dataframe(df)
 
@@ -157,6 +157,7 @@ if prompt := st.chat_input("Ask about your data..."):
 
     # 6️⃣ Save assistant response to history
     st.session_state.messages.append(assistant_msg)
+
 
 
 
